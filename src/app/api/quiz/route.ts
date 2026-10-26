@@ -54,12 +54,23 @@ export async function POST(req: NextRequest) {
       for (const qid of a.questionIds) used.add(qid);
     }
 
-    const picks: Question[] = [];
+    let picks: Question[] = [];
     const notes: string[] = [];
     for (const topic of targets) {
       if (mode === "diagnostic") {
-        const mcq = pickBankUnused(ws, topic.id, used, "easy") ?? pickBankUnused(ws, topic.id, used, "hard");
-        const short = pickBankUnused(ws, topic.id, used, "short");
+        // 1. Try bank questions first (seeded, citation-verified).
+        let mcq: Question | null | undefined = pickBankUnused(ws, topic.id, used, "easy") ?? pickBankUnused(ws, topic.id, used, "hard");
+        let short: Question | null | undefined = pickBankUnused(ws, topic.id, used, "short");
+        // 2. If nothing from the bank, fall back to autogen from uploaded chunks.
+        if (!mcq || !short) {
+          const autogen = autogenQuestionsForTopic(topic, ws.chunks, ws.documents, mcq || short ? 1 : 2);
+          const freshM = autogen.find((q) => !used.has(q.id) && q.type === "mcq");
+          const freshS = autogen.find((q) => !used.has(q.id) && q.type === "short");
+          if (!mcq && freshM) { picks.push(freshM); notes.push(`${topic.title}: auto-generated MCQ from your material (autogen-v1).`); }
+          if (!short && freshS) { picks.push(freshS); notes.push(`${topic.title}: auto-generated short answer from your material (autogen-v1).`); }
+          if (!mcq) mcq = freshM ?? undefined;
+          if (!short) short = freshS ?? undefined;
+        }
         if (mcq) picks.push(mcq);
         if (short) picks.push(short);
         if (!mcq && !short) notes.push(`${topic.title}: no assessment item available (add material or upload a chapter).`);

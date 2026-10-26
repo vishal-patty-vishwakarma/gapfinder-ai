@@ -107,24 +107,44 @@ export async function POST(req: NextRequest) {
     let newTopics = 0;
     if (kind === "syllabus") {
       for (const line of text.split(/\r?\n/)) {
-        const m = line.trim().match(/^(?:Unit|Chapter)\s*[\dIVX]+[.:)]?\s*(.{4,90})$/i);
+        const trimmed = line.trim();
+        // Try multiple patterns:
+        // 1. "Unit N. Topic" or "Chapter N. Topic"
+        // 2. "1. Topic" or "Module N - Topic"
+        // 3. "- Topic" or "* Topic" (bullet points)
+        let m = trimmed.match(/^(?:Unit|Chapter)\s+[\dIVX]+[.:)]?\s*(.{4,90})$/i);
+        if (!m) {
+          // Pattern: "N. Topic" (e.g., "1. Cell structure")
+          m = trimmed.match(/^\d+[.:]\s*(.{4,90})$/);
+          if (!m) {
+            // Pattern: "Module N - Topic"
+            m = trimmed.match(/^Module\s+[\d]+[\s-]*(.{4,90})$/i);
+            if (!m) {
+              // Bullet points: "- Topic" or "* Topic"
+              m = trimmed.match(/^[ *\-]+(.{4,90})$/);
+            }
+          }
+        }
         if (m) {
           const title = m[1].replace(/\s*\(.*?\)\s*$/, "").trim();
-          const dup = ws.topics.some((t) => t.title.toLowerCase() === title.toLowerCase());
-          if (!dup) {
-            const t: TopicState = {
-              id: stableId("topic", [user.id, title, now]),
-              title,
-              keywords: title.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/).filter((w) => w.length > 3),
-              origin: "uploaded",
-              outOfScope: false,
-              importanceOverride: null,
-              ppWeight: null,
-              parents: [],
-              syllabusRef: line.trim(),
-            };
-            ws.topics.push(t);
-            newTopics += 1;
+          // Skip very generic titles that aren't actual topics
+          if (title.length >= 4 && title.length <= 120) {
+            const dup = ws.topics.some((t) => t.title.toLowerCase() === title.toLowerCase());
+            if (!dup) {
+              const t: TopicState = {
+                id: stableId("topic", [user.id, title, now]),
+                title,
+                keywords: title.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/).filter((w) => w.length > 3),
+                origin: "uploaded",
+                outOfScope: false,
+                importanceOverride: null,
+                ppWeight: null,
+                parents: [],
+                syllabusRef: line.trim(),
+              };
+              ws.topics.push(t);
+              newTopics += 1;
+            }
           }
         }
       }

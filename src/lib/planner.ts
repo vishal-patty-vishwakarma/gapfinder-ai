@@ -22,6 +22,9 @@ const BASE_MINUTES: Record<PlanItemKind, number> = {
   self_explain: 10,
 };
 
+// Minimum minutes per item after scaling. Items below this are dropped.
+const MIN_ITEM_MINUTES = 5;
+
 const KIND_ORDER: Record<PlanItemKind, number> = {
   add_material: 0,
   assess_now: 1,
@@ -132,7 +135,7 @@ export function buildPlan(opts: {
 
   // Materialise item specs
   let order = 0;
-  const specs: PlanItem[] = [];
+  let specs: PlanItem[] = [];
   const examToday =
     examDate !== null &&
     (new Date(examDate).getTime() - new Date(nowIso).getTime()) / 86400000 <= 1.5;
@@ -171,31 +174,61 @@ export function buildPlan(opts: {
     }
   }
 
-  // Time-budget allocation: only the time the student declared.
-  const totalBase = specs.reduce((s, i) => s + i.minutes, 0);
+  // Time-budget allocation: never exceed availableMinutes.
+  // Items scaled below MIN_ITEM_MINUTES are dropped (lowest priority first).
+  // 0 available minutes => no items, explicit note.
   let note: string | null = null;
-  if (specs.length === 0) {
-    note = "No revision needed by policy right now — all assessed topics are Strong, or no report exists yet.";
-  } else if (availableMinutes <= 0) {
-    note = `You said you have 0 minutes available. The full plan needs about ${totalBase} minutes; nothing was allocated.`;
-  } else if (totalBase > availableMinutes) {
-    const factor = availableMinutes / totalBase;
-    let used = 0;
-    for (const item of specs) {
-      const scaled = Math.max(5, Math.round((item.minutes * factor) / 5) * 5);
-      item.minutes = scaled;
-      used += scaled;
-    }
-    // trim overflow greedily from the tail
-    for (const item of [...specs].reverse()) {
-      if (used <= availableMinutes) break;
-      const cut = Math.min(item.minutes - 5, used - availableMinutes);
-      item.minutes -= cut;
-      used -= cut;
-    }
-    note = `Fit to your ${availableMinutes} available minutes — scale factor ≈ ${(factor).toFixed(2)} of the full plan (${Math.round(totalBase)} min).`;
-  } else {
+  if (availableMinutes <= 0) {
+    note = "No revision tasks allocated — zero minutes available.";
+    // still materialise specs so the dashboard shows "no plan" rather than empty
+    const totalBase = specs.reduce((s, i) => s + i.minutes, 0);
+    return {
+      id: `plan_v${(previousPlan?.version ?? 0) + 1}`,
+      version: previousPlan?.version + 1 ?? 1,
+      createdAt: nowIso,
+      budgetMinutes: 0,
+      examDate,
+      basedOnReportId: report.id,
+      items: [],
+      status: "active",
+      whatChanged: previousPlan
+        ? { added: [], removed: [], retimed: [], reason: "Plan discarded: 0 minutes available." }
+        : { added: [], removed: [], retimed: [], reason: "No plan built: 0 minutes available." },
+      note,
+    };
+  }
+
+  const totalBase = specs.reduce((s, i) => s + i.minutes, 0);
+  let factor = totalBase > availableMinutes ? availableMinutes / totalBase : 1;
+  let used = 0;
+
+  // Scale all items, then drop those below the minimum floor.
+  for (const item of specs) {
+    const scaled = Math.max(MIN_ITEM_MINUTES, Math.round((item.minutes * factor) / 5) * 5);
+    item.minutes = scaled;
+    used += scaled;
+  }
+
+  // Drop lowest-priority items (last in sorted order) that can't meet the floor.
+  // Re-accumulate used after each drop until all remaining items fit.
+  let overflow = used - availableMinutes;
+  while (overflow > 0 && specs.length > 0) {
+    const tail = specs.pop()!;
+    used -= tail.minutes;
+    overflow = used - availableMinutes;
+  }
+
+  // If after dropping everything still doesn't fit (shouldn't happen since MIN_ITEM_MINUTES * n <= available), reset.
+  if (overflow > 0) {
+    // All items dropped; keep nothing.
+    specs = [];
+    used = 0;
+    note = `Your ${availableMinutes} available minutes are insufficient for any tasks (minimum ${MIN_ITEM_MINUTES} min per task).`;
+  } else if (totalBase <= availableMinutes) {
     note = `Full plan fits your budget (${totalBase} of ${availableMinutes} available minutes).`;
+  } else {
+    // Re-sort after potential drops; remaining items are already ranked by priority.
+    note = `Fit to your ${availableMinutes} available minutes — scaled from ${Math.round(totalBase)} min; ${specs.length} task(s) allocated.`;
   }
 
   // what-changed summary vs previous active plan

@@ -164,16 +164,29 @@ export function computeTopicAssessment(
   };
 
   let status: TopicStatus;
-  if (nValid < MIN_VALID_FOR_STATUS) {
+  // If there are enough valid items, use the band status and supersede any
+  // needs_review items (later valid evidence takes priority).
+  if (nValid >= MIN_VALID_FOR_STATUS) {
+    // Re-compute validRate for the band function
+    const vRate = valid > 0 ? (correct + partial * 0.5) / valid : null;
+    status = bandStatus(vRate, nValid, hardCorrect);
+    // If there were needs_review items but we have enough valid evidence,
+    // add a note about supersession
+    if (needsReview > 0) {
+      // The reason will be added in statusReasons below
+    }
+  } else if (nValid + needsReview >= MIN_VALID_FOR_STATUS && topic !== undefined) {
+    // Not enough valid items on their own, but combining valid + needs_review
+    // might meet the threshold. However, we should be conservative: only use
+    // needs_review status if there are no strong valid indicators.
+    status = "needs_review";
+  } else if (unresolved > 0 && nValid + unresolved >= MIN_VALID_FOR_STATUS && topic !== undefined) {
+    status = "needs_review";
+  } else if (nValid < MIN_VALID_FOR_STATUS) {
     // Re-opening potential: a pending review could push us over the minimum.
-    status = unresolved > 0 && nValid + unresolved >= MIN_VALID_FOR_STATUS && topic !== undefined
-      ? "needs_review"
-      : "not_enough_evidence";
+    status = "not_enough_evidence";
   } else {
-    const band = bandStatus(validRate!, nValid, hardCorrect);
-    // If any unresolved items exist AND THEY could plausibly change the result,
-    // surface "needs review" instead of a confident band.
-    status = unresolved > 0 ? "needs_review" : band;
+    status = bandStatus(validRate!, nValid, hardCorrect);
   }
 
   // NOTE: needs_review is used when ANY unresolved item exists for a topic with

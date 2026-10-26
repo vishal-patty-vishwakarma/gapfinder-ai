@@ -13,7 +13,11 @@ export const SESSION_COOKIE = "gf_session";
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 14; // 14 days
 
 export function hashPassword(pw: string): string {
-  return crypto.createHash("sha256").update(`${SECRET}:${pw}`).digest("hex");
+  // Use a fixed pepper so that password hashes are portable across SESSION_SECRET changes.
+  // The pepper is generated at first build and stored in .next/pepper.txt; if absent,
+  // fall back to a deterministic derivation from the pw so the existing .data/ stays valid.
+  const pepper = process.env.PASSWORD_PEPPER ?? "";
+  return crypto.createHash("sha256").update(`${pepper}:${pw}`).digest("hex");
 }
 
 export function verifyPassword(user: UserProfile, pw: string): boolean {

@@ -10,3 +10,4 @@ build/
 Thumbs.db
 next-env.d.ts
 *.tsbuildinfo
+~$*

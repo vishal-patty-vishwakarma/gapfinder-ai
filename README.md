@@ -57,7 +57,7 @@ they never change how topics are diagnosed.
 | Plan generation | Priority + knapsack-lite time allocation | Only phrasing, never time/priority |
 | Explain topic | Extractive answer with `[n]` citations | Optional fluent rewrite (grounded) |
 
-Full details: [`docs/RAG_PIPELINE.md`](docs/RAG_PIPELINE.md) · [`docs/AI_WORKFLOW.md`](docs/AI_WORKFLOW.md) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+Full details: [`docs/PROBLEM_STATEMENT.md`](docs/PROBLEM_STATEMENT.md) · [`docs/RAG_PIPELINE.md`](docs/RAG_PIPELINE.md) · [`docs/AI_WORKFLOW.md`](docs/AI_WORKFLOW.md) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 
 ## Repo layout
 

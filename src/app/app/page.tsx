@@ -7,7 +7,14 @@ import { api, json } from "@/components/api";
 import { Card, StatusPill, Button, Loading, ProgressBar } from "@/components/ui";
 
 interface StatusCount { status: string; n: number }
-interface ReportLite { topics: { topicId: string; title: string; status: string }[] }
+  interface ReportLite {
+    topics: {
+      topicId: string;
+      title: string;
+      status: string;
+      counts?: { valid: number; correct: number; partial: number; wrong: number; skip: number; dontKnow: number; needsReview: number };
+    }[];
+  }
 interface Me { user: { name: string; email: string; kind: string }; course: { title: string; attempts: number; submitted: number; inProgressAttemptId: string | null; topics: number; documents: number } }
 interface PlanLite { plan: { version: number; budgetMinutes: number; items: { id: string; done: boolean; minutes: number }[] } | null }
 
@@ -46,6 +53,19 @@ export default function Dashboard() {
   ).map(([status, n]) => ({ status, n }));
 
   const targets = report?.topics.filter((t) => t.status === "weak" || t.status === "not_enough_evidence" || t.status === "needs_review").map((t) => t.topicId) ?? [];
+
+  // Honest count: topics that actually have assessment responses behind them
+  // (any response state, including skips/"don't know"). Topics with zero
+  // responses are NOT "attempted" — they show "Not enough evidence".
+  const assessedCount =
+    report?.topics.filter(
+      (t) =>
+        (t.counts?.valid ?? 0) +
+          (t.counts?.skip ?? 0) +
+          (t.counts?.dontKnow ?? 0) +
+          (t.counts?.needsReview ?? 0) >
+        0
+    ).length ?? 0;
   const doneCount = plan?.plan?.items.filter((i) => i.done).length ?? 0;
   const totalItems = plan?.plan?.items.length ?? 0;
 
@@ -118,8 +138,9 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card className="p-4">
-          <p className="text-xs text-slate-500">Attempted topics</p>
-          <p className="mt-1 text-2xl font-bold">{report?.topics.length ?? 0}<span className="text-sm font-normal text-slate-400"> / {me.course.topics}</span></p>
+          <p className="text-xs text-slate-500">Topics with assessment evidence</p>
+          <p className="mt-1 text-2xl font-bold">{assessedCount}<span className="text-sm font-normal text-slate-400"> / {me.course.topics} on syllabus</span></p>
+          <p className="mt-0.5 text-[11px] text-slate-400">topics with no responses show “Not enough evidence”</p>
         </Card>
         <Card className="p-4">
           <p className="text-xs text-slate-500">Submitted attempts</p>

@@ -184,7 +184,7 @@ export function buildPlan(opts: {
     const totalBase = specs.reduce((s, i) => s + i.minutes, 0);
     return {
       id: `plan_v${(previousPlan?.version ?? 0) + 1}`,
-      version: previousPlan?.version + 1 ?? 1,
+      version: (previousPlan?.version ?? 0) + 1,
       createdAt: nowIso,
       budgetMinutes: 0,
       examDate,

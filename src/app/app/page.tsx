@@ -103,7 +103,7 @@ export default function Dashboard() {
 
   const nextAction = () => {
     if (me.course.inProgressAttemptId) return { label: "Resume your assessment in progress", href: `/app/quiz/${me.course.inProgressAttemptId}`, btn: "Resume" };
-    if (report.topics.length === 0) return { label: "Take the diagnostic assessment to build your gap report", href: undefined as unknown as string, btn: "Start diagnostic" };
+    if (!report || report.topics.length === 0) return { label: "Take the diagnostic assessment to build your gap report", href: undefined as unknown as string, btn: "Start diagnostic" };
     if (totalItems === 0) return { label: "Build a revision plan from your gap report", href: "/app/plan", btn: "Open planner" };
     if (doneCount < totalItems) return { label: "Continue your revision plan", href: "/app/plan", btn: "Open plan" };
     if (targets.length > 0) return { label: "Collect missing evidence on flagged topics (targeted assessment)", href: undefined as unknown as string, btn: "Assess now" };

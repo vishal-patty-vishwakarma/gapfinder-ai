@@ -167,8 +167,7 @@ export function computeTopicAssessment(
   // If there are enough valid items, use the band status and supersede any
   // needs_review items (later valid evidence takes priority).
   if (nValid >= MIN_VALID_FOR_STATUS) {
-    // Re-compute validRate for the band function
-    const vRate = valid > 0 ? (correct + partial * 0.5) / valid : null;
+    const vRate = validRate ?? ((correct + partial * 0.5) / (valid || 1));
     status = bandStatus(vRate, nValid, hardCorrect);
     // If there were needs_review items but we have enough valid evidence,
     // add a note about supersession

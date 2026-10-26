@@ -8,7 +8,9 @@ import path from "path";
 import type { StoreShape, Workspace, UserProfile } from "@/lib/types";
 import { buildSeedState, emptyWorkspaceFor } from "@/lib/server/seed";
 
-const DATA_DIR = process.env.GAPFINDER_DATA_DIR ?? path.join(process.cwd(), ".data");
+const DATA_DIR =
+  process.env.GAPFINDER_DATA_DIR ??
+  (process.env.VERCEL ? path.join("/tmp", ".data") : path.join(process.cwd(), ".data"));
 const DATA_FILE = path.join(DATA_DIR, "state.json");
 
 let cache: StoreShape | null = null;
